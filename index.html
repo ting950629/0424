@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-tw">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>選單與畫布</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Microsoft JhengHei', Arial, sans-serif;
+    }
+    #menu {
+      position: fixed;
+      top: 0;
+      right: 0;
+      background-color: #fefaee;
+      display: flex;
+      padding: 10px;
+      list-style: none;
+      margin: 0;
+      z-index: 10;
+    }
+    #menu li {
+      margin: 0 10px;
+      padding: 10px 20px;
+      cursor: pointer;
+      font-size: 20px;
+      color: #3a5a40;
+      transition: color 0.3s;
+    }
+    #menu li:hover {
+      color: #588157;
+    }
+    #subMenu {
+      position: absolute;
+      background-color: #fefaee;
+      border: 1px solid #ccc;
+      list-style: none;
+      padding: 10px;
+      display: none;
+      z-index: 20;
+    }
+    #subMenu li {
+      padding: 5px 10px;
+      cursor: pointer;
+      font-size: 18px;
+      color: #3a5a40;
+      transition: color 0.3s;
+    }
+    #subMenu li:hover {
+      color: #588157;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+  <script src="libraries/p5.min.js"></script>
+  <script src="libraries/p5.sound.min.js"></script>
+</head>
+<body>
+  <ul id="menu">
+    <li id="home">首頁</li>
+    <li id="intro">自我介紹</li>
+    <li id="portfolio">作品集</li>
+    <li id="quiz">測驗卷</li>
+    <li id="videos">教學影片</li>
+  </ul>
+  <ul id="subMenu">
+    <li id="week1">第一周</li>
+    <li id="week2">第二周</li>
+    <li id="week3">第三周</li>
+    <li id="week4">第四周</li>
+  </ul>
+  <script>
+    let circles = [];
+    let iframeURL = "";
+    let introText = "";
+    let isIntroActive = false; // 新增變數以追蹤是否顯示自我介紹
+    let isPortfolioActive = false; // 新增變數以追蹤是否顯示作品集
+    let isQuizActive = false; // 新增變數以追蹤是否顯示測驗卷
+    let isVideosActive = false; // 新增變數以追蹤是否顯示教學影片
+    let cloudImage; // 用於存放雲朵圖片
+
+    function preload() {
+      cloudImage = loadImage('照片1.png'); // 載入雲朵圖片
+    }
+
+    function setup() {
+      createCanvas(windowWidth, windowHeight);
+      background('#e3d5ca');
+
+      // 生成 40 個雲朵的初始位置和大小
+      for (let i = 0; i < 40; i++) {
+        circles.push({
+          x: random(width),
+          y: random(height),
+          size: random(50, 150), // 雲朵的大小
+        });
+      }
+
+      // 綁定選單項目點擊事件
+      document.getElementById('home').addEventListener('click', resetHome);
+      document.getElementById('intro').addEventListener('click', showIntro);
+      document.getElementById('portfolio').addEventListener('click', toggleSubMenu);
+      document.getElementById('quiz').addEventListener('click', showQuiz);
+      document.getElementById('videos').addEventListener('click', showVideos);
+
+      // 綁定子選單項目點擊事件
+      document.getElementById('week1').addEventListener('click', () => showPortfolioWeek('week1'));
+      document.getElementById('week2').addEventListener('click', () => showPortfolioWeek('week2'));
+      document.getElementById('week3').addEventListener('click', () => showPortfolioWeek('week3'));
+      document.getElementById('week4').addEventListener('click', () => showPortfolioWeek('week4'));
+    }
+
+    function draw() {
+      if (isIntroActive) {
+        background('#ffc0cb'); // 自我介紹啟用時，覆蓋整個畫布為粉紅色
+      } else if (isPortfolioActive) {
+        background('#66B3FF'); // 作品集啟用時，覆蓋整個畫布為藍色
+      } else if (isQuizActive) {
+        background('#CA8EFF'); // 測驗卷啟用時，覆蓋整個畫布為紫色
+      } else if (isVideosActive) {
+        background('#FFDC35'); // 教學影片啟用時，覆蓋整個畫布為黃色
+      } else {
+        background('#e3d5ca'); // 預設背景
+      }
+
+      if (!isIntroActive && !isPortfolioActive && !isQuizActive && !isVideosActive) {
+        // 繪製所有雲朵圖片，大小隨滑鼠移動變化
+        for (let cloud of circles) {
+          let dynamicSize = cloud.size * map(mouseX, 0, width, 0.5, 1.5); // 根據滑鼠位置調整大小
+          image(cloudImage, cloud.x, cloud.y, dynamicSize, dynamicSize * 0.6);
+        }
+      }
+
+      // 如果 iframeURL 不為空，繪製 iframe
+      if (iframeURL !== "") {
+        drawIframe();
+      }
+
+      // 如果 introText 不為空，顯示自我介紹文字
+      if (introText !== "") {
+        drawIntroText();
+      }
+    }
+
+    function drawIframe() {
+      let iframeWidth = width * 0.8;
+      let iframeHeight = height * 0.8;
+      let iframeX = (width - iframeWidth) / 2;
+      let iframeY = (height - iframeHeight) / 2;
+
+      fill('#ffffff');
+      stroke('#cccccc');
+      strokeWeight(2);
+      rect(iframeX, iframeY, iframeWidth, iframeHeight);
+    }
+
+    function drawIntroText() {
+      let boxWidth = 600; // 加寬方框
+      let boxHeight = 300; // 保持高度
+      let boxX = (width - boxWidth) / 2;
+      let boxY = (height - boxHeight) / 2;
+
+      // 設置文字內容為不可捲動且無滾動條
+      let padding = 20; // 每一邊的內邊距一致
+      let textX = boxX + padding;
+      let textY = boxY + padding;
+      let textWidth = boxWidth - padding * 2;
+      let textHeight = boxHeight - padding * 2;
+
+      let introDiv = document.getElementById('introDiv');
+      if (!introDiv) {
+        introDiv = document.createElement('div');
+        introDiv.id = 'introDiv';
+        introDiv.style.position = 'absolute';
+        introDiv.style.left = `${textX}px`;
+        introDiv.style.top = `${textY}px`;
+        introDiv.style.width = `${textWidth}px`;
+        introDiv.style.height = `${textHeight}px`;
+        introDiv.style.overflow = 'hidden'; // 移除滾动條
+        introDiv.style.backgroundColor = '#fefaee';
+        introDiv.style.padding = `${padding}px`; // 設置內邊距
+        introDiv.style.borderRadius = '10px';
+        introDiv.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+        introDiv.innerHTML = `
+          <div style="display: flex; align-items: center; height: 100%;">
+            <div style="flex: 1; padding-right: 20px;">
+              <p style="font-size: 18px; color: #3a5a40; line-height: 1.6; text-align: left;">
+                我叫黃子庭<br><br>
+                我住淡水<br><br>
+                今年18歲
+              </p>
+            </div>
+            <div style="flex: 0 0 150px;">
+              <img src="照片.JPG" alt="自我介紹照片" style="width: 100%; border-radius: 10px;">
+            </div>
+          </div>
+        `;
+        document.body.appendChild(introDiv);
+      } else {
+        introDiv.style.display = 'block';
+      }
+    }
+
+    function resetHome() {
+      iframeURL = "";
+      introText = "";
+      isIntroActive = false; // 關閉自我介紹模式
+      isPortfolioActive = false; // 關閉作品集模式
+      isQuizActive = false; // 關閉測驗卷模式
+      isVideosActive = false; // 關閉教學影片模式
+      circles = [];
+      for (let i = 0; i < 40; i++) {
+        circles.push({
+          x: random(width),
+          y: random(height),
+          size: random(50, 150), // 雲朵的大小
+        });
+      }
+      // 移除所有 iframe 元素
+      let iframes = document.querySelectorAll('iframe');
+      iframes.forEach(iframe => iframe.remove());
+
+      // 隱藏子選單
+      document.getElementById('subMenu').style.display = 'none';
+
+      // 隱藏自我介紹方框
+      let introDiv = document.getElementById('introDiv');
+      if (introDiv) {
+        introDiv.style.display = 'none';
+      }
+    }
+
+    function showIntro() {
+      // 移除現有的 iframe
+      let iframes = document.querySelectorAll('iframe');
+      iframes.forEach(iframe => iframe.remove());
+
+      // 設置背景為純粉紅色
+      isIntroActive = true; // 啟用自我介紹模式
+      isPortfolioActive = false; // 關閉作品集模式
+      isQuizActive = false; // 關閉測驗卷模式
+      isVideosActive = false; // 關閉教學影片模式
+      background('#ffc0cb');
+
+      introText = "我是黃子庭";
+      iframeURL = "";
+      document.getElementById('subMenu').style.display = 'none';
+    }
+
+    function toggleSubMenu() {
+      const subMenu = document.getElementById('subMenu');
+      const portfolioButton = document.getElementById('portfolio');
+      const rect = portfolioButton.getBoundingClientRect(); // 獲取「作品集」按鈕的位置
+
+      // 設定子選單的位置在「作品集」按鈕正下方
+      subMenu.style.left = `${rect.left}px`;
+      subMenu.style.top = `${rect.bottom}px`;
+
+      // 切換子選單顯示狀態
+      const isVisible = subMenu.style.display === 'none';
+      subMenu.style.display = isVisible ? 'block' : 'none';
+
+      // 設置背景為藍色
+      isPortfolioActive = isVisible; // 啟用或關閉作品集模式
+      isIntroActive = false; // 關閉自我介紹模式
+      isQuizActive = false; // 關閉測驗卷模式
+      isVideosActive = false; // 關閉教學影片模式
+      if (isPortfolioActive) {
+        background('#66B3FF');
+      }
+    }
+
+    function showPortfolioWeek(week) {
+      iframeURL = ""; // 根據 week 設定對應的網址
+      introText = ""; // 關閉自我介紹方框
+
+      // 隱藏自我介紹方框
+      let introDiv = document.getElementById('introDiv');
+      if (introDiv) {
+        introDiv.style.display = 'none';
+      }
+
+      switch (week) {
+        case 'week1':
+          iframeURL = "https://hackmd.io/@4bQ0oaQWQseFtEJiEYlQJg/SJTHpUrc1l"; // 第一周網址
+          break;
+        case 'week2':
+          iframeURL = "https://hackmd.io/@4bQ0oaQWQseFtEJiEYlQJg/Sk7wi6DjJx"; // 第二周網址
+          break;
+        case 'week3':
+          iframeURL = "https://ting950629.github.io/20250328/"; // 第三周網址
+          break;
+        case 'week4':
+          iframeURL = "https://hackmd.io/@4bQ0oaQWQseFtEJiEYlQJg/r1bTyPDJgx"; // 第四周網址
+          break;
+        default:
+          console.error("無效的 week 值:", week);
+          return;
+      }
+
+      // 移除現有的 iframe，避免重複創建
+      let iframes = document.querySelectorAll('iframe');
+      iframes.forEach(iframe => iframe.remove());
+
+      // 創建新的 iframe 元素
+      let iframeWidth = windowWidth * 0.8;
+      let iframeHeight = windowHeight * 0.8;
+      let iframeX = (windowWidth - iframeWidth) / 2;
+      let iframeY = (windowHeight - iframeHeight) / 2;
+
+      let iframe = document.createElement('iframe');
+      iframe.src = iframeURL;
+      iframe.style.position = 'absolute';
+      iframe.style.left = `${iframeX}px`;
+      iframe.style.top = `${iframeY}px`;
+      iframe.style.width = `${iframeWidth}px`;
+      iframe.style.height = `${iframeHeight}px`;
+      iframe.style.border = '0';
+      iframe.allow = 'autoplay; fullscreen';
+      iframe.allowFullscreen = true;
+      document.body.appendChild(iframe);
+
+      // 隱藏子選單
+      document.getElementById('subMenu').style.display = 'none';
+    }
+
+    function showQuiz() {
+      iframeURL = "https://ting950629.github.io/exam/"; // 測驗卷網址
+      introText = ""; // 關閉自我介紹方框
+
+      // 隱藏自我介紹方框
+      let introDiv = document.getElementById('introDiv');
+      if (introDiv) {
+        introDiv.style.display = 'none';
+      }
+
+      // 移除現有的 iframe，避免重複創建
+      let iframes = document.querySelectorAll('iframe');
+      iframes.forEach(iframe => iframe.remove());
+
+      // 創建新的 iframe 元素
+      let iframeWidth = windowWidth * 0.8;
+      let iframeHeight = windowHeight * 0.8;
+      let iframeX = (windowWidth - iframeWidth) / 2;
+      let iframeY = (windowHeight - iframeHeight) / 2;
+
+      let iframe = document.createElement('iframe');
+      iframe.src = iframeURL;
+      iframe.style.position = 'absolute';
+      iframe.style.left = `${iframeX}px`;
+      iframe.style.top = `${iframeY}px`;
+      iframe.style.width = `${iframeWidth}px`;
+      iframe.style.height = `${iframeHeight}px`;
+      iframe.style.border = '0';
+      iframe.allow = 'autoplay; fullscreen';
+      iframe.allowFullscreen = true;
+      document.body.appendChild(iframe);
+
+      // 隱藏子選單
+      document.getElementById('subMenu').style.display = 'none';
+    }
+
+    function showVideos() {
+      iframeURL = "https://cfchen58.synology.me/%E7%A8%8B%E5%BC%8F%E8%A8%AD%E8%A8%882024/A2/week3/20250307_092233.mp4"; // 教學影片網址
+      introText = ""; // 關閉自我介紹方框
+
+      // 隱藏自我介紹方框
+      let introDiv = document.getElementById('introDiv');
+      if (introDiv) {
+        introDiv.style.display = 'none';
+      }
+
+      // 移除現有的 iframe，避免重複創建
+      let iframes = document.querySelectorAll('iframe');
+      iframes.forEach(iframe => iframe.remove());
+
+      // 創建新的 iframe 元素
+      let iframeWidth = windowWidth * 0.8;
+      let iframeHeight = windowHeight * 0.8;
+      let iframeX = (windowWidth - iframeWidth) / 2;
+      let iframeY = (windowHeight - iframeHeight) / 2;
+
+      let iframe = document.createElement('iframe');
+      iframe.src = iframeURL;
+      iframe.style.position = 'absolute';
+      iframe.style.left = `${iframeX}px`;
+      iframe.style.top = `${iframeY}px`;
+      iframe.style.width = `${iframeWidth}px`;
+      iframe.style.height = `${iframeHeight}px`;
+      iframe.style.border = '0';
+      iframe.allow = 'autoplay; fullscreen';
+      iframe.allowFullscreen = true;
+      document.body.appendChild(iframe);
+
+      // 隱藏子選單
+      document.getElementById('subMenu').style.display = 'none';
+    }
+
+    function windowResized() {
+      resizeCanvas(windowWidth, windowHeight);
+    }
+  </script>
+</body>
+</html>
